@@ -22,7 +22,27 @@ return deepCopy(grid)
 }
 
 function guess({ row, col, value }) {
+// ✅ contract check（必须保留）
+if (
+typeof row !== 'number' ||
+typeof col !== 'number' ||
+typeof value !== 'number'
+) {
+throw new Error('Invalid input type')
+}
+
+```
+if (row < 0 || row > 8 || col < 0 || col > 8) {
+  throw new Error('Index out of bounds')
+}
+
+if (value < 0 || value > 9) {
+  throw new Error('Invalid value')
+}
+
 grid[row][col] = value
+```
+
 }
 
 function clone() {
@@ -114,7 +134,6 @@ let pointer = 0
 
 let mode = "normal"
 let exploreSnapshot = null
-let failedStates = new Set()
 
 return {
 getSudoku,
@@ -123,6 +142,7 @@ undo,
 redo,
 canUndo,
 canRedo,
+toJSON,
 hint,
 enterExplore,
 abandonExplore,
@@ -134,22 +154,13 @@ return history[pointer]
 }
 
 function guess(move) {
-let newSudoku = getSudoku().clone()
-newSudoku.guess(move)
+if (!move || typeof move !== 'object') {
+throw new Error('Invalid move')
+}
 
 ```
-if (mode === "explore") {
-  let state = JSON.stringify(newSudoku.getGrid())
-
-  if (failedStates.has(state)) {
-    console.warn("这个路径已经失败过！")
-  }
-
-  if (newSudoku.isConflict()) {
-    console.warn("探索失败！")
-    failedStates.add(state)
-  }
-}
+let newSudoku = getSudoku().clone()
+newSudoku.guess(move)
 
 history = history.slice(0, pointer + 1)
 history.push(newSudoku)
@@ -174,6 +185,13 @@ function canRedo() {
 return pointer < history.length - 1
 }
 
+function toJSON() {
+return {
+history: history.map(s => s.toJSON()),
+pointer
+}
+}
+
 function hint() {
 return getSudoku().getSingleCandidates()
 }
@@ -196,3 +214,35 @@ mode = "normal"
 exploreSnapshot = null
 }
 }
+
+// ===== Serialization =====
+export function createSudokuFromJSON(json) {
+return createSudoku(json.grid)
+}
+
+export function createGameFromJSON(json) {
+let history = json.history.map(createSudokuFromJSON)
+let pointer = json.pointer
+
+return {
+getSudoku: () => history[pointer],
+guess(move) {
+let newSudoku = history[pointer].clone()
+newSudoku.guess(move)
+history = history.slice(0, pointer + 1)
+history.push(newSudoku)
+pointer++
+},
+undo() { if (pointer > 0) pointer-- },
+redo() { if (pointer < history.length - 1) pointer++ },
+canUndo() { return pointer > 0 },
+canRedo() { return pointer < history.length - 1 },
+toJSON() {
+return {
+history: history.map(s => s.toJSON()),
+pointer
+}
+}
+}
+}
+
