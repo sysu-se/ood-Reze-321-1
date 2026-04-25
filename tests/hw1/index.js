@@ -1,120 +1,63 @@
 function deepCopy(grid) {
-return grid.map(row => [...row])
+return grid.map(row => [...row]);
 }
 
 // ===== Sudoku =====
 export function createSudoku(input) {
-let grid = deepCopy(input)
+let grid = deepCopy(input);
 
 return {
 getGrid,
 guess,
 clone,
 toJSON,
-toString,
-getCandidates,
-getSingleCandidates,
-isConflict
-}
+toString
+};
 
 function getGrid() {
-return deepCopy(grid)
+return deepCopy(grid);
 }
 
 function guess({ row, col, value }) {
-grid[row][col] = value
+// contract check
+if (
+typeof row !== 'number' ||
+typeof col !== 'number' ||
+typeof value !== 'number'
+) {
+throw new Error('Invalid input type');
+}
+
+if (row < 0 || row > 8 || col < 0 || col > 8) {
+  throw new Error('Index out of bounds');
+}
+
+if (value < 0 || value > 9) {
+  throw new Error('Invalid value');
+}
+
+grid[row][col] = value;
+
+
 }
 
 function clone() {
-return createSudoku(deepCopy(grid))
+return createSudoku(deepCopy(grid));
 }
 
 function toJSON() {
-return { grid: deepCopy(grid) }
+return { grid: deepCopy(grid) };
 }
 
 function toString() {
-return grid.map(row => row.join(" ")).join("\n")
-}
-
-// ===== Hint =====
-function getCandidates(row, col) {
-if (grid[row][col] !== 0) return []
-
-```
-let s = new Set([1,2,3,4,5,6,7,8,9])
-
-for (let i=0;i<9;i++){
-  s.delete(grid[row][i])
-  s.delete(grid[i][col])
-}
-
-let sr = Math.floor(row/3)*3
-let sc = Math.floor(col/3)*3
-
-for (let i=0;i<3;i++){
-  for (let j=0;j<3;j++){
-    s.delete(grid[sr+i][sc+j])
-  }
-}
-
-return Array.from(s)
-```
-
-}
-
-function getSingleCandidates() {
-let res = []
-
-```
-for (let r=0;r<9;r++){
-  for (let c=0;c<9;c++){
-    if (grid[r][c]===0){
-      let cands = getCandidates(r,c)
-      if (cands.length===1){
-        res.push({row:r,col:c,value:cands[0]})
-      }
-    }
-  }
-}
-
-return res
-```
-
-}
-
-function isConflict() {
-for (let i=0;i<9;i++){
-let row = new Set()
-let col = new Set()
-
-```
-  for (let j=0;j<9;j++){
-    let r = grid[i][j]
-    let c = grid[j][i]
-
-    if (r && row.has(r)) return true
-    if (c && col.has(c)) return true
-
-    row.add(r)
-    col.add(c)
-  }
-}
-
-return false
-```
-
+return grid.map(row => row.join(" ")).join("\n");
 }
 }
 
 // ===== Game =====
 export function createGame({ sudoku }) {
-let history = [sudoku.clone()]
-let pointer = 0
-
-let mode = "normal"
-let exploreSnapshot = null
-let failedStates = new Set()
+let history = [sudoku.clone()];
+let pointer = 0;
 
 return {
 getSudoku,
@@ -123,76 +66,107 @@ undo,
 redo,
 canUndo,
 canRedo,
-hint,
-enterExplore,
-abandonExplore,
-commitExplore
-}
+toJSON
+};
 
 function getSudoku() {
-return history[pointer]
+return history[pointer];
 }
 
 function guess(move) {
-let newSudoku = getSudoku().clone()
-newSudoku.guess(move)
-
-```
-if (mode === "explore") {
-  let state = JSON.stringify(newSudoku.getGrid())
-
-  if (failedStates.has(state)) {
-    console.warn("这个路径已经失败过！")
-  }
-
-  if (newSudoku.isConflict()) {
-    console.warn("探索失败！")
-    failedStates.add(state)
-  }
+if (!move || typeof move !== 'object') {
+throw new Error('Invalid move');
 }
 
-history = history.slice(0, pointer + 1)
-history.push(newSudoku)
-pointer++
-```
+let newSudoku = getSudoku().clone();
+newSudoku.guess(move);
+
+history = history.slice(0, pointer + 1);
+history.push(newSudoku);
+pointer++;
+
 
 }
 
 function undo() {
-if (pointer > 0) pointer--
+if (pointer > 0) pointer--;
 }
 
 function redo() {
-if (pointer < history.length - 1) pointer++
+if (pointer < history.length - 1) pointer++;
 }
 
 function canUndo() {
-return pointer > 0
+return pointer > 0;
 }
 
 function canRedo() {
-return pointer < history.length - 1
+return pointer < history.length - 1;
 }
 
-function hint() {
-return getSudoku().getSingleCandidates()
+function toJSON() {
+return {
+history: history.map(s => s.toJSON()),
+pointer
+};
+}
 }
 
-function enterExplore() {
-if (mode === "explore") return
-mode = "explore"
-exploreSnapshot = getSudoku().clone()
+// ===== Serialization =====
+export function createSudokuFromJSON(json) {
+return createSudoku(json.grid);
 }
 
-function abandonExplore() {
-if (mode !== "explore") return
-history = [exploreSnapshot.clone()]
-pointer = 0
-mode = "normal"
+export function createGameFromJSON(json) {
+let history = json.history.map(createSudokuFromJSON);
+let pointer = json.pointer;
+
+return {
+getSudoku,
+guess,
+undo,
+redo,
+canUndo,
+canRedo,
+toJSON
+};
+
+function getSudoku() {
+return history[pointer];
 }
 
-function commitExplore() {
-mode = "normal"
-exploreSnapshot = null
+function guess(move) {
+let newSudoku = getSudoku().clone();
+newSudoku.guess(move);
+
+
+history = history.slice(0, pointer + 1);
+history.push(newSudoku);
+pointer++;
+
+
+}
+
+function undo() {
+if (pointer > 0) pointer--;
+}
+
+function redo() {
+if (pointer < history.length - 1) pointer++;
+}
+
+function canUndo() {
+return pointer > 0;
+}
+
+function canRedo() {
+return pointer < history.length - 1;
+}
+
+function toJSON() {
+return {
+history: history.map(s => s.toJSON()),
+pointer
+};
 }
 }
