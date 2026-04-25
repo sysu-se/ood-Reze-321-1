@@ -28,7 +28,6 @@ typeof value !== 'number'
 throw new Error('Invalid input type');
 }
 
-```
 if (row < 0 || row > 8 || col < 0 || col > 8) {
   throw new Error('Index out of bounds');
 }
@@ -38,7 +37,7 @@ if (value < 0 || value > 9) {
 }
 
 grid[row][col] = value;
-```
+
 
 }
 
@@ -79,14 +78,13 @@ if (!move || typeof move !== 'object') {
 throw new Error('Invalid move');
 }
 
-```
 let newSudoku = getSudoku().clone();
 newSudoku.guess(move);
 
 history = history.slice(0, pointer + 1);
 history.push(newSudoku);
 pointer++;
-```
+
 
 }
 
@@ -141,11 +139,11 @@ function guess(move) {
 let newSudoku = getSudoku().clone();
 newSudoku.guess(move);
 
-```
+
 history = history.slice(0, pointer + 1);
 history.push(newSudoku);
 pointer++;
-```
+
 
 }
 
